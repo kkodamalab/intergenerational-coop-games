@@ -1,0 +1,17 @@
+import {test,expect} from '@playwright/test';
+test('two simultaneous controllers, touch, disconnect and reconnect',async({page,context})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('./');await page.locator('#harvest').click();await expect(page.locator('#link0')).toHaveAttribute('href',/host=/);
+ await page.locator('#start').click();await expect(page.locator('#settings')).toBeVisible();
+ const a=await context.newPage(),b=await context.newPage();await a.goto((await page.locator('#link0').getAttribute('href'))!);await b.goto((await page.locator('#link1').getAttribute('href'))!);
+ await expect(page.locator('#status0')).toContainText('接続済み');await expect(page.locator('#status1')).toContainText('接続済み');
+ const pad=await a.locator('#pad').boundingBox();await a.mouse.move(pad!.x+pad!.width*.8,pad!.y+pad!.height*.3);await a.mouse.down();await a.mouse.up();await expect(a.locator('#marker')).toHaveAttribute('style',/80%/);
+ await page.locator('#start').click();await expect(page.locator('#play')).toBeVisible();await b.close();await expect(page.locator('#connection')).toContainText('P2 未接続');await expect(page.locator('#pause')).toHaveText('RESUME');
+ const c=await context.newPage();await c.goto((await page.locator('#link1').getAttribute('href'))!);await expect(page.locator('#connection')).toContainText('P2 接続済み');await page.locator('#pause').click();await expect(page.locator('#pause')).toHaveText('PAUSE');expect(errors).toEqual([]);
+});
+test('both demo games, settings, pause, restart and home',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('./');
+ for(const game of ['harvest','hockey']){await page.locator('#'+game).click();await page.locator('#demo').check();await page.locator('#duration').selectOption('30');await page.locator('#start').click();await expect(page.locator('#game')).toBeVisible();await page.keyboard.down('d');await page.keyboard.down('ArrowUp');await page.waitForTimeout(3200);await page.keyboard.up('d');await page.keyboard.up('ArrowUp');await page.locator('#pause').click();await expect(page.locator('#pause')).toHaveText('RESUME');await page.locator('#restart').click();await expect(page.locator('#pause')).toHaveText('PAUSE');await page.locator('#home').click();await expect(page.locator('#menu')).toBeVisible();}expect(errors).toEqual([]);
+});
+test('mobile touch preserves position and requests iOS sensor permission from button',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true});await context.addInitScript(()=>{Object.defineProperty(DeviceOrientationEvent,'requestPermission',{value:async()=>{(window as any).permissionAsked=true;return 'granted';}});});const page=await context.newPage();await page.goto('?host=not-existing&player=0');await page.locator('#pad').tap({position:{x:70,y:80}});const before=await page.locator('#marker').getAttribute('style');await page.waitForTimeout(100);expect(await page.locator('#marker').getAttribute('style')).toBe(before);await page.locator('#tilt').click();expect(await page.evaluate(()=>(window as any).permissionAsked)).toBe(true);await page.evaluate(()=>{const event=new DeviceOrientationEvent('deviceorientation',{beta:5,gamma:4});window.dispatchEvent(event);});await expect(page.locator('#help')).toContainText('端末を傾けて');await context.close();
+});

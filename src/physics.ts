@@ -7,13 +7,13 @@ export function board(a:Point,b:Point,length:number,maxAngle:number){
  return {x,y,angle,length,left:{x:x-dx,y:y-dy},right:{x:x+dx,y:y+dy}};
 }
 export type Fruit={x:number,y:number,r:number,vy:number,kind:number,s:number,v:number,held:number,caught:boolean,done:boolean};
-export function fruitStep(f:Fruit,p:ReturnType<typeof board>,dt:number,speed:number){
+export function fruitStep(f:Fruit,p:ReturnType<typeof board>,dt:number,speed:number,penaltyOnContact=false){
  if(f.done)return false;
  const c=Math.cos(p.angle),sn=Math.sin(p.angle);
  if(!f.caught){
  const old=(f.y-p.y)*c-(f.x-p.x)*sn;f.y+=f.vy*speed*dt;
  const n=(f.y-p.y)*c-(f.x-p.x)*sn,s=(f.x-p.x)*c+(f.y-p.y)*sn;
- if(old<=-f.r && n>=-f.r && Math.abs(s)<=p.length/2){f.caught=true;f.s=s;f.held=0;}
+ if(old<=-f.r && n>=-f.r && Math.abs(s)<=p.length/2){f.caught=true;f.s=s;f.held=0;if(penaltyOnContact){f.done=true;return true;}}
  if(f.y>760)f.done=true;
  }
  if(f.caught){f.v+=500*sn*dt;f.v*=Math.exp(-1.4*dt);f.s+=f.v*dt;
